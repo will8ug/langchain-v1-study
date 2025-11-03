@@ -13,6 +13,7 @@ model = ChatOpenAI(
     model="qwen-plus",
     api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    max_completion_tokens=10000
 )
 
 memory = InMemorySaver()
@@ -32,18 +33,32 @@ input_message = {
     "role": "user",
     "content": "Hi, I'm Bob and I live in Guangzhou."
 }
-for step in agent.stream(
+for chunk in agent.stream(
     {"messages": [input_message]}, 
     config, 
     stream_mode="values"
 ):
-    step["messages"][-1].pretty_print()
+    chunk["messages"][-1].pretty_print()
 
-print("\n\n")
+print("\n=====================\n")
 
 input_message = {
     "role": "user",
     "content": "What's the weather where I live?"
+}
+for step, metadata in agent.stream(
+    {"messages": [input_message]}, 
+    config, 
+    stream_mode="messages"
+):
+    if metadata["langgraph_node"] == "model" and (content := step.content):
+        print(content, end="", flush=True)
+
+print("\n=====================\n")
+
+input_message = {
+    "role": "user",
+    "content": "Any breaking news in the past week where I live?"
 }
 for step, metadata in agent.stream(
     {"messages": [input_message]}, 
