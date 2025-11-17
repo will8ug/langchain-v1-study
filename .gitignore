@@ -9,3 +9,13 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
