@@ -1,31 +1,29 @@
 import os
-from re import M
-from typing import TypedDict
+import sys
 from dotenv import load_dotenv
+
+load_dotenv()
+# Add the project root directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from typing import TypedDict
 from langchain.chat_models import init_chat_model
 from langgraph.graph import StateGraph, START, END
 
-load_dotenv()
-
-model="qwen-flash"
-api_key=os.getenv("DASHSCOPE_API_KEY")
-base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
-# model="deepseek-chat"
-# api_key=os.getenv("DEEPSEEK_API_KEY")
-# base_url="https://api.deepseek.cn/v1"
+from app.common.llm_configs import qwen
 
 async def filter_by_tags():
     joke_model = init_chat_model(
-        model=model,
-        api_key=api_key,
-        base_url=base_url,
+        model=qwen.model,
+        api_key=qwen.api_key,
+        base_url=qwen.base_url,
         model_provider="openai",
         tags=["joke"]
     )
     poem_model = init_chat_model(
-        model=model,
-        api_key=api_key,
-        base_url=base_url,
+        model=qwen.model,
+        api_key=qwen.api_key,
+        base_url=qwen.base_url,
         model_provider="openai",
         tags=["poem"]
     )
