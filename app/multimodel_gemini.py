@@ -30,6 +30,31 @@ def analyze_pdf_document(pdf_path: str, question: str = "What is the document ab
     return response.content
 
 
+def generate_image():
+    model = ChatGoogleGenerativeAI(model="gemini-2.5-flash-image")
+
+    response = model.invoke(
+        "Generate a photorealistic image of a cuddly cat wearing a hat."
+    )
+    image_block = next(
+        block
+        for block in response.content
+        if isinstance(block, dict) and block.get("image_url")
+    )
+    print(image_block)
+    image_base64 = image_block["image_url"].get("url").split(",")[-1]
+
+    image_data = base64.b64decode(image_base64)
+    output_path = "./generated_cat.png"
+    with open(output_path, "wb") as f:
+        f.write(image_data)
+    print(f"Image saved to {output_path}")
+
+    return output_path
+
+
 if __name__ == "__main__":
     result = analyze_pdf_document("./resources/sample-001.pdf")
     print(result)
+
+    generate_image()
