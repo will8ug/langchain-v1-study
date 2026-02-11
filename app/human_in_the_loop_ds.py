@@ -44,17 +44,29 @@ def system_info() -> str:
     return info
 
 
+@tool
+def file_editor(filename: str, content: str) -> str:
+    """Edit a file with new content. Requires human approval and allows editing."""
+    try:
+        with open(filename, "w") as f:
+            f.write(content)
+        return f"Successfully wrote to {filename}"
+    except Exception as ex:
+        return f"Error writing to file: {str(ex)}"
+
+
 model = ChatDeepSeek(model="deepseek-chat")
 
 agent = create_agent(
     model=model,
-    tools=[calculator, file_reader, system_info],
+    tools=[calculator, file_reader, system_info, file_editor],
     middleware=[
         HumanInTheLoopMiddleware(
             interrupt_on={
                 "calculator": False,
                 "file_reader": {"allowed_decisions": ["approve", "reject"]},
                 "system_info": True,
+                "file_editor": {"allowed_decisions": ["approve", "reject", "edit"]},
             },
             description_prefix="Tool execution pending approval",
         )
@@ -132,6 +144,52 @@ def demo_interrupt_with_reject(config: RunnableConfig):
     print("-" * 40)
 
 
+def demo_interrupt_with_edit(config: RunnableConfig):
+    """Demo file editor with interrupt and edit decision."""
+    print("4. Interrupt with Edit Demo (File Editor)")
+    print("Agent: ", end="")
+
+    try:
+        response = agent.invoke(
+            input={
+                "messages": [
+                    HumanMessage(
+                        content="Create a test.txt file with 'Hello World' content"
+                    )
+                ]
+            },
+            config=config,
+        )
+        print(response["messages"][-1].content)
+
+        if "__interrupt__" in response:
+            print("\nContinue with edit (modifying content to 'Hello Edited World')...")
+            resumed_response = agent.invoke(
+                Command(
+                    resume={
+                        "decisions": [
+                            {
+                                "type": "edit",
+                                "edited_action": {
+                                    "name": "file_editor",
+                                    "args": {
+                                        "filename": "test.txt",
+                                        "content": "Hello Edited World",
+                                    },
+                                },
+                            }
+                        ]
+                    }
+                ),
+                config=config,
+            )
+            print(resumed_response["messages"][-1].content)
+    except Exception as ex:
+        print(f"Error: {str(ex)}")
+
+    print("-" * 40)
+
+
 if __name__ == "__main__":
     print("Human-in-the-Loop Agent Demo")
     print("=" * 40)
@@ -141,3 +199,4 @@ if __name__ == "__main__":
     demo_no_interrupt(config)
     demo_interrupt_with_approve(config)
     demo_interrupt_with_reject(config)
+    demo_interrupt_with_edit(config)
