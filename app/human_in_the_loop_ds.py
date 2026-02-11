@@ -62,42 +62,82 @@ agent = create_agent(
     checkpointer=InMemorySaver(),
 )
 
+
+def demo_no_interrupt(config: RunnableConfig):
+    """Demo calculator tool with no interrupt required."""
+    print("1. No Interrupt Demo (Calculator)")
+    print("Agent: ", end="")
+
+    try:
+        response = agent.invoke(
+            input={"messages": [HumanMessage(content="Calculate 15 * 8 + 3")]},
+            config=config,
+        )
+        print(response["messages"][-1].content)
+    except Exception as ex:
+        print(f"Error: {str(ex)}")
+
+    print("-" * 40)
+
+
+def demo_interrupt_with_approve(config: RunnableConfig):
+    """Demo file reader with interrupt and approve decision."""
+    print("2. Interrupt with Approve Demo (File Reader)")
+    print("Agent: ", end="")
+
+    try:
+        response = agent.invoke(
+            input={
+                "messages": [
+                    HumanMessage(content="Read the README.md file if it exists")
+                ]
+            },
+            config=config,
+        )
+        print(response["messages"][-1].content)
+
+        if "__interrupt__" in response:
+            print("\nContinue with approval...")
+            resumed_response = agent.invoke(
+                Command(resume={"decisions": [{"type": "approve"}]}), config=config
+            )
+            print(resumed_response["messages"][-1].content)
+    except Exception as ex:
+        print(f"Error: {str(ex)}")
+
+    print("-" * 40)
+
+
+def demo_interrupt_with_reject(config: RunnableConfig):
+    """Demo system info with interrupt and reject decision."""
+    print("3. Interrupt with Reject Demo (System Info)")
+    print("Agent: ", end="")
+
+    try:
+        response = agent.invoke(
+            input={"messages": [HumanMessage(content="Show me system information")]},
+            config=config,
+        )
+        print(response["messages"][-1].content)
+
+        if "__interrupt__" in response:
+            print("\nContinue with rejection...")
+            resumed_response = agent.invoke(
+                Command(resume={"decisions": [{"type": "reject"}]}), config=config
+            )
+            print(resumed_response["messages"][-1].content)
+    except Exception as ex:
+        print(f"Error: {str(ex)}")
+
+    print("-" * 40)
+
+
 if __name__ == "__main__":
     print("Human-in-the-Loop Agent Demo")
     print("=" * 40)
 
     config: RunnableConfig = {"configurable": {"thread_id": "demo-thread"}}
 
-    messages = [
-        "Calculate 15 * 8 + 3",
-        "Read the README.md file if it exists",
-        "Show me system information",
-    ]
-
-    for msg in messages:
-        print(f"\nUser: {msg}")
-        print("Agent: ", end="")
-
-        try:
-            response = agent.invoke(
-                input={"messages": [HumanMessage(content=msg)]},
-                config=config
-            )
-            print(response["messages"][-1].content)
-
-            if "__interrupt__" in response:
-                # print(f"__interrupt__: \n{response['__interrupt__']}")
-
-                print("\nContinue with approval...")
-                resumed_response = agent.invoke(
-                    Command(
-                        resume={"decisions": [{"type": "approve"}]}
-                    ),
-                    config=config
-                )
-                print(resumed_response["messages"][-1].content)
-
-        except Exception as ex:
-            print(f"Error: {str(ex)}")
-
-        print("-" * 40)
+    demo_no_interrupt(config)
+    demo_interrupt_with_approve(config)
+    demo_interrupt_with_reject(config)
