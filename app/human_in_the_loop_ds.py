@@ -5,6 +5,7 @@ from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_deepseek import ChatDeepSeek
+from langchain_tavily import TavilySearch
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
@@ -55,11 +56,16 @@ def file_editor(filename: str, content: str) -> str:
         return f"Error writing to file: {str(ex)}"
 
 
-model = ChatDeepSeek(model="deepseek-chat")
+search_tool = TavilySearch(
+    search_depth="fast",
+    max_results=3,
+)
+
+model_ds = ChatDeepSeek(model="deepseek-chat")
 
 agent = create_agent(
-    model=model,
-    tools=[calculator, file_reader, system_info, file_editor],
+    model=model_ds,
+    tools=[calculator, file_reader, system_info, file_editor, search_tool],
     middleware=[
         HumanInTheLoopMiddleware(
             interrupt_on={
@@ -67,6 +73,7 @@ agent = create_agent(
                 "file_reader": {"allowed_decisions": ["approve", "reject"]},
                 "system_info": True,
                 "file_editor": {"allowed_decisions": ["approve", "reject", "edit"]},
+                "search_tool": {"allowed_decisions": ["approve", "reject"]},
             },
             description_prefix="Tool execution pending approval",
         )
@@ -190,13 +197,65 @@ def demo_interrupt_with_edit(config: RunnableConfig):
     print("-" * 40)
 
 
+def demo_streaming_with_search(config: RunnableConfig):
+    """Demo streaming LLM responses that triggers web search tool with approve decision."""
+    print("5. Streaming with Web Search Demo")
+    print("Agent: ", end="", flush=True)
+
+    try:
+        stopped = False
+        for mode, chunk in agent.stream(
+            input={
+                "messages": [
+                    HumanMessage(
+                        content="What's the latest LLM released by OpenAI in 2025?"
+                        # content="Search for the latest news about artificial intelligence and summarize what you find."
+                    )
+                ]
+            },
+            config=config,
+            stream_mode=["updates", "messages"]
+        ):
+            if mode == "messages":
+                token, _ = chunk
+                if token.content:
+                    print(token.content, end="", flush=True)
+            elif mode == "updates":
+                print("\n=>Got an update")
+                print(chunk)
+                if "__interrupt__" in chunk:
+                    stopped = True
+
+        if stopped:
+            print("\nContinue with approval for web search...")
+            for mode, chunk in agent.stream(
+                Command(resume={"decisions": [{"type": "approve"}]}),
+                config=config,
+                stream_mode=["updates", "messages"]
+            ):
+                if mode == "messages":
+                    token, metadata = chunk
+                    if token.content:
+                        print(token.content, end="", flush=True)
+                elif mode == "updates":
+                    print("=>Got an update")
+        
+        print("~" * 10)
+        print(stopped)   # sometimes the LLM didn't interrupt before calling the tool
+    except Exception as ex:
+        print(f"Error: {str(ex)}")
+
+    print("-" * 40)
+
+
 if __name__ == "__main__":
     print("Human-in-the-Loop Agent Demo")
     print("=" * 40)
 
-    config: RunnableConfig = {"configurable": {"thread_id": "demo-thread"}}
+    config: RunnableConfig = {"configurable": {"thread_id": "demo-thread-000"}}
 
     demo_no_interrupt(config)
     demo_interrupt_with_approve(config)
     demo_interrupt_with_reject(config)
     demo_interrupt_with_edit(config)
+    demo_streaming_with_search(config)
